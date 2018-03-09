@@ -1,0 +1,11 @@
+{
+  "name": "treasure",
+  "version": "1.0.0",
+  "description": "Build artifact management tool for SENG303118s1.",
+  "main": "index.js",
+  "author": "Nick",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.16.2"
+  }
+}
