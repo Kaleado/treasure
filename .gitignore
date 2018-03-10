@@ -1,1 +1,3 @@
-repo/*
+builds/
+repo/
+node_modules

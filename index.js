@@ -11,7 +11,7 @@ var buildPrefix = "seng3031";
 //We save the build descriptors in this file and read from it every time we start.
 var builds = JSON.parse(fs.readFileSync("builds.js", "utf8"));
 //Milliseconds to wait between each repository poll.
-var refreshDelay = 30000;
+var refreshDelay = 5000;
 
 console.log(makeBuildDescriptor(new Date()));
 
@@ -56,15 +56,18 @@ setInterval(() => {
             console.log(err);
             return;
         }
-        
-        if(stdout.indexOf("Already up to date.") == -1){
+
+        // Repo has changed
+        if(( stdout.indexOf("Already up to date.") == -1 ) 
+         && ( stdout.indexOf("Already up-to-date.") == -1)) {
             console.log("Changes detected - tarring it all up...");
             //Changes detected - put the pulled code in a ZIP.
             var buildDescriptor = makeBuildDescriptor(new Date());
             var archive = buildDescriptor + ".tar.gz";
             console.log("Creating tar: " + archive + "...");
             exec("tar -czvf ./builds/" + archive + " ./repo", (err, stdout, stderr) => {
-                console.log(stdout);
+                // For debugging...
+                //console.log(stdout);
                 if (err) {
                     // node couldn't execute the command
                     console.log("Tarring failed!");
@@ -84,9 +87,8 @@ setInterval(() => {
                 });
                 
             });
-        }
-        else {
-            console.log("No updates.");
+        } else {
+            console.log("No updates...");
         }
     });   
 }, refreshDelay);
