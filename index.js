@@ -11,53 +11,24 @@ var buildPrefix = "seng3031";
 //We save the build descriptors in this file and read from it every time we start.
 var builds = JSON.parse(fs.readFileSync("builds.js", "utf8"));
 //Milliseconds to wait between each repository poll.
-var refreshDelay = 3000;
+var refreshDelay = 5000;
+
+console.log(makeBuildDescriptor(new Date()));
 
 app.use(express.static('builds'));
 
 
 //\\//\\//\\ GLOBAL FUNCTIONS
 
-/**
-   Returns an archive name corresponding to the build descriptor provided.
-
-   @param {buildDescriptor} The build descriptor to return an archive name for.
-   @returns {string} The archive name corresponding to the build descriptor - NOT the full path.
- */
-function extractTarNameFromDescriptor(buildObject){
-    var now = new Date();
-    return util.format("%s_%d-%d-%d@%d-%d-%d.tar.gz",
-                       buildObject.prefix,
-                       buildObject.year,
-                       buildObject.month,
-                       buildObject.day,
-                       buildObject.hours,
-                       buildObject.minutes,
-                       buildObject.seconds);
-}
 
 /**
    Creates a build descriptor (containing the prefix and the date of creation) for a build.
    
-   @param {string} prefix The build prefix - should be something related to the project.
-   @param {integer} year The year to tag the archive with.
-   @param {integer} month The month to tag the archive with.
-   @param {integer} day The day to tag the archive with.
-   @param {integer} hours The hours to tag the archive with.
-   @param {integer} minutes The minutes to tag the archive with.
-   @param {integer} seconds The seconds to tag the archive with.
+   @param {date} a Date object with the current time
    @returns {buildDescriptor} The build descriptor object.
  */
-function makeBuildDescriptor(prefix, year, month, day, hours, minutes, seconds){
-    return {
-        prefix: prefix,
-        year: year,
-        month: month,
-        day: day,
-        hours: hours,
-        minutes: minutes,
-        seconds: seconds
-    };
+function makeBuildDescriptor(date){
+    return buildPrefix + "_" + date.toISOString();
 }
 
 //\\//\\//\\ ROUTES
@@ -82,25 +53,21 @@ setInterval(() => {
         if (err) {
             // node couldn't execute the command
             console.log("Error when pulling!");
+            console.log(err);
             return;
         }
-        
-        if(stdout.indexOf("Already up to date.") == -1){
+
+        // Repo has changed
+        if(( stdout.indexOf("Already up to date.") == -1 ) 
+         && ( stdout.indexOf("Already up-to-date.") == -1)) {
             console.log("Changes detected - tarring it all up...");
             //Changes detected - put the pulled code in a ZIP.
-            var now = new Date();
-            var buildDescriptor = makeBuildDescriptor(
-                buildPrefix,
-                now.getYear() + 1900,
-                now.getMonth(),
-                now.getDay(),
-                now.getHours(),
-                now.getMinutes(),
-                now.getSeconds());
-            var archive = extractTarNameFromDescriptor(buildDescriptor);
+            var buildDescriptor = makeBuildDescriptor(new Date());
+            var archive = buildDescriptor + ".tar.gz";
             console.log("Creating tar: " + archive + "...");
             exec("tar -czvf ./builds/" + archive + " ./repo", (err, stdout, stderr) => {
-                console.log(stdout);
+                // For debugging...
+                //console.log(stdout);
                 if (err) {
                     // node couldn't execute the command
                     console.log("Tarring failed!");
@@ -120,9 +87,8 @@ setInterval(() => {
                 });
                 
             });
-        }
-        else {
-            console.log("No updates.");
+        } else {
+            console.log("No updates...");
         }
     });   
 }, refreshDelay);
