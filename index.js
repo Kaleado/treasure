@@ -39,7 +39,7 @@ app.get('/', function (req, res) {
     html += "<h1>Treasure</h1><h2>Artifacts</h2>";
     html += "<ul>";
     for(var i in builds){
-        html += '<li><a href="' + extractTarNameFromDescriptor(builds[i]) + '">' + extractTarNameFromDescriptor(builds[i]) + '</li>';
+        html += '<li><a href="' + builds[i] + ".tar.gz" + '">' + builds[i] + ".tar.gz"  + '</li>';
     }
     html += "</ul>";
     res.send(html);
