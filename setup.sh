@@ -19,6 +19,7 @@ mkdir -p builds
 mkdir -p repo
 
 touch builds.js
+echo "[]" > builds.js
 
 # Cause people forget
 npm install || (echo && echo "Failed NPM install - are you sudo?" && echo && exit);
