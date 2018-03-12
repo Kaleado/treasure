@@ -1,0 +1,10 @@
+[
+    {
+        "name": "Do something!",
+        "exec": "./stages/saySomething.sh && echo 'do whatever'"
+    },
+    {
+        "name": "Make doxygen docs.",
+        "exec": "doxygen -g; mv Doxyfile ./repo; cd ./repo; doxygen Doxyfile"
+    }
+]

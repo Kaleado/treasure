@@ -17,8 +17,11 @@ fi
 mkdir -p builds
 # Make repo container
 mkdir -p repo
+# Make build stages directory
+mkdir -p stages
 
-touch builds.js
+echo "[]" > builds.json
+echo "[]" > buildStages.json
 
 # Cause people forget
 npm install || (echo && echo "Failed NPM install - are you sudo?" && echo && exit);
