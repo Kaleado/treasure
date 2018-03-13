@@ -3,20 +3,25 @@ var app = express();
 var { exec } = require('child_process');
 var fs = require('fs');
 var util = require('util');
+var { execPromise } = util.promisify(exec);
 
 //\\//\\//\\ GLOBAL VARIABLES
 
+//Whether to save an archive of the new version.
+var saveArchive = false;
 //Change this to fit your project.
 var buildPrefix = "seng3031";
 //We save the build descriptors in this file and read from it every time we start.
 var builds = JSON.parse(fs.readFileSync("builds.json", "utf8"));
 //Milliseconds to wait between each repository poll.
-var refreshDelay = 5000;
+var refreshDelay = 15000;
+//The current dir is saved.
+const dir = process.cwd();
 
 app.use(express.static('builds'));
 
-//\\//\\//\\ GLOBAL FUNCTIONS
 
+//\\//\\//\\ GLOBAL FUNCTIONS
 
 /**
  Creates a build descriptor (containing the prefix and the date of creation) for a build.
@@ -29,35 +34,35 @@ function makeBuildDescriptor(date){
 }
 
 /**
- Executes each build stage in order.
+ Creates a TAR archive from the given build descriptor.
 
- @param {Object} buildDescriptor The build being built at the moment.
+ @returns {buildDescriptor} The build descriptor object.
  */
-async function executeBuildStages(buildDescriptor){
-    //We also open the build stages too - these are just script files that are
-    //exec'd when a change occurs, in order.
-    //Format: {name: "Do something", "exec": "./script.sh && echo 'do whatever'"}.
-    var buildStages = JSON.parse(fs.readFileSync("buildStages.json", "utf8"));
-
-    for(var i in buildStages){
-        var currentStage = buildStages[i];
-        execString = currentStage.exec;
-        execString.replace("{{buildName}}", buildDescriptor.name);
-        promiseExec = util.promisify(exec);
-        console.log("TREASURE: Executing stage " + currentStage.name + "...");
-        try{
-            const {stdout, stderr} = await promiseExec(execString);
-            console.log("TREASURE: Stage " + currentStage.name + " executed.");
-            console.log("\\//\\//\\ STDOUT PROVIDED BELOW");
-            console.log(stdout);
-        }
-        catch(err){
-            console.error("TREASURE: Error during execution of stage " + currentStage.name + ".");
-            console.error("\\//\\//\\ STDERROR PROVIDED BELOW");
-            console.error(stderr);
+async function makeArchive(buildDescriptor){
+    var archive = buildDescriptor.name + ".tar.gz";
+    console.log("Creating tar: " + archive + "...");
+    exec("tar -czvf ./builds/" + archive + " ./repo", (err, stdout, stderr) => {
+        // For debugging...
+        console.log("\\//\\//\\// STDOUT: ");
+        console.log(stdout);
+        if (err) {
+            // node couldn't execute the command
+            console.log("Tarring failed!");
+            console.error(err);
             return;
         }
-    }
+        builds.push(buildDescriptor);
+        //Save it.
+        fs.writeFile("./builds.json", JSON.stringify(builds), function(err) {
+            if(err) {
+                console.log("builds.json write failed!");
+                return;
+            }
+            console.log("The file was saved!");
+            return;
+        });
+    });
+
 }
 
 //\\//\\//\\ ROUTES
@@ -74,11 +79,13 @@ app.get('/', function (req, res) {
     res.send(html);
 });
 
-setInterval(() => {
+setInterval(function(){
     console.log("Checking for updates...");
-
+    process.chdir(dir + "/repo");
     //Check if git repo has updated.
-    exec('git -C ./repo pull', (err, stdout, stderr) => {
+    exec('git pull', (err, stdout, stderr) => {
+        console.log("\\//\\//\\// STDOUT: ");
+        console.log(stdout);
         if (err) {
             // node couldn't execute the command
             console.log("Error when pulling!");
@@ -89,35 +96,28 @@ setInterval(() => {
         // Repo has changed
         if(( stdout.indexOf("Already up to date.") == -1 )
            && ( stdout.indexOf("Already up-to-date.") == -1)) {
-            console.log("Changes detected - executing build stages...");
+            console.log("Changes detected...");
             var buildDescriptor = makeBuildDescriptor(new Date());
-            //Execute each build stage.
-            executeBuildStages(buildDescriptor);
-            //Create the tarball.
-            var archive = buildDescriptor.name + ".tar.gz";
-            console.log("Creating tar: " + archive + "...");
-            exec("tar -czvf ./builds/" + archive + " ./repo", (err, stdout, stderr) => {
-                // For debugging...
-                //console.log(stdout);
-                if (err) {
-                    // node couldn't execute the command
-                    console.log("Tarring failed!");
-                    console.error(err);
+            //Run the build script for the repo.
+            //process.chdir("repo");
+            exec("./build.sh", async function(buildErr, buildStdout, buildStderr){
+                console.log("\\//\\//\\// STDOUT: ");
+                console.log(stdout);
+                process.chdir(dir);
+                if(buildErr){
+                    console.error("Build script failed.");
+                    console.error("//\\//\\//\\ STDERR:");
+                    console.error(buildStderr);
                     return;
                 }
-                builds.push(buildDescriptor);
-                //Save it.
-                fs.writeFile("./builds.json", JSON.stringify(builds), function(err) {
-                    if(err) {
-                        console.log("builds.json write failed!");
-                        return;
-                    }
-                    console.log("The file was saved!");
-                    return;
-                });
+                //Create the tarball.
+                if(saveArchive){
+                    await makeArchive();
+                }
             });
         }
         else {
+            process.chdir(dir);
             console.log("No updates...");
         }
     });
